@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>档案里的时光拼图</title>
+    <style>
+        :root {
+            --bg-color: #f4f1ea;
+            --text-color: #333;
+            --primary: #8b5a2b;
+            --primary-hover: #6d4621;
+            --card-bg: #fff;
+        }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #app {
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .hidden { display: none !important; }
+        
+        /* 导航与标题 */
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: var(--primary); letter-spacing: 2px; }
+        .back-btn {
+            background: none; border: none; color: var(--primary);
+            font-size: 16px; cursor: pointer; position: absolute;
+            top: 20px; left: 20px; font-weight: bold;
+        }
+
+        /* 主页 */
+        .home-buttons { display: flex; gap: 20px; justify-content: center; }
+        .home-btn {
+            flex: 1; padding: 40px 20px; background: var(--card-bg);
+            border: 2px solid var(--primary); border-radius: 12px;
+            text-align: center; cursor: pointer; transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .home-btn:hover { background: var(--primary); color: #fff; transform: translateY(-5px); }
+        .home-btn h2 { margin: 0 0 10px 0; }
+        .home-btn p { margin: 0; font-size: 14px; opacity: 0.8; }
+
+        /* 自选图库 (适配10张图，每行5张) */
+        .gallery { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
+        .gallery-item {
+            aspect-ratio: 1/1; border-radius: 8px; overflow: hidden;
+            cursor: pointer; position: relative; border: 2px solid transparent;
+            transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .gallery-item:hover { border-color: var(--primary); transform: scale(1.03); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-item .title-mask {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6); color: white;
+            padding: 5px; text-align: center; font-size: 13px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* 拼图界面 */
+        .puzzle-container { display: flex; flex-direction: column; align-items: center; }
+        .puzzle-info { margin-bottom: 15px; font-weight: bold; color: #666; font-size: 18px;}
+        .puzzle-board {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            width: 450px; height: 450px; gap: 2px; background: #ccc;
+            border: 4px solid var(--primary); border-radius: 8px; overflow: hidden;
+        }
+        .puzzle-piece {
+            width: 100%; height: 100%; background-size: 300% 300%;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .puzzle-piece:active { transform: scale(0.95); }
+        .puzzle-piece.selected { outline: 4px solid #ff9800; outline-offset: -4px; z-index: 10; }
+
+        /* 完成后的故事面板 */
+        .story-panel {
+            margin-top: 20px; background: var(--card-bg); padding: 25px;
+            border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%; max-width: 550px; text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .story-panel h3 { color: var(--primary); margin-top: 0; font-size: 22px; }
+        .story-text { 
+            line-height: 1.8; text-align: justify; margin-bottom: 25px; 
+            font-size: 16px; color: #333; background: #fdfcfb; 
+            padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);
+        }
+
+        /* 下一步动作区 */
+        .next-actions {
+            padding-top: 15px; border-top: 1px dashed #ccc;
+            animation: fadeIn 0.5s ease-in;
+        }
+        .next-actions p { font-size: 15px; color: #666; margin-bottom: 15px; }
+        .action-buttons { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+        .action-btn {
+            background: var(--primary); color: white; border: none;
+            padding: 10px 24px; border-radius: 25px; cursor: pointer; font-size: 15px;
+            transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .action-btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- 主页板块 -->
+    <div id="home-screen">
+        <div class="header">
+            <h1>档案里的时光拼图</h1>
+            <p>拼出历史印记，解锁档案记忆</p>
+        </div>
+        <div class="home-buttons">
+            <div class="home-btn" onclick="showScreen('select-screen')">
+                <h2>📜 自选档案</h2>
+                <p>从10份苏州档案中挑选一张进行拼图</p>
+            </div>
+            <div class="home-btn" onclick="startBlindBox()">
+                <h2>🎲 盲盒拼图</h2>
+                <p>随机开启一份尘封的档案记忆</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自选图库板块 -->
+    <div id="select-screen" class="hidden">
+        <button class="back-btn" onclick="showScreen('home-screen')">← 返回</button>
+        <div class="header">
+            <h2>请选择一张档案图片</h2>
+        </div>
+        <div class="gallery" id="gallery-container"></div>
+    </div>
+
+    <!-- 拼图与故事板块 -->
+    <div id="puzzle-screen" class="hidden">
+        <button class="back-btn" onclick="showScreen('home-screen')">← 放弃拼图</button>
+        <div class="puzzle-container">
+            <div class="puzzle-info" id="puzzle-title">档案拼图中...</div>
+            <div class="puzzle-board" id="puzzle-board"></div>
+            
+            <!-- 成功后显示的面板 -->
+            <div class="story-panel hidden" id="story-panel">
+                <h3>🎉 档案解密成功！</h3>
+                <p class="story-text" id="story-text"></p>
+                
+                <!-- 下一步动作区 -->
+                <div class="next-actions" id="next-actions">
+                    <p>故事已阅，接下来您可以：</p>
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="showScreen('select-screen')">去自选图库</button>
+                        <button class="action-btn" onclick="startBlindBox()">再开一个盲盒</button>
+                        <button class="action-btn" onclick="showScreen('home-screen')">返回首页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==============================================================
+    // 👇 已经为你填好所有10个苏州档案信息 👇
+    // ==============================================================
+    const archives = [
+        { 
+            id: 1, 
+            title: "苏州阊门", 
+            image: "1.jpg", 
+            story: "阊门是苏州古城的西门，始建于春秋末年，相传为伍子胥修筑阖闾大城时所辟，因取“阊阖天门”之意而得名。明清两代，这里凭借京杭大运河与山塘、上塘两河交汇的水陆之利，成为苏州最繁盛的商埠，商贾云集，会馆林立，行市鳞次栉比。《红楼梦》开篇便称它“最是红尘中一二等富贵风流之地”。现存城门与山塘街首尾相衔，是苏州诸城门中名声最响的一座。" 
+        },
+        { 
+            id: 2, 
+            title: "苏州盘门", 
+            image: "2.jpg", 
+            story: "盘门位于苏州古城的西南角，是春秋时期阖闾大城八门之一，古称蟠门，因这一带水道纵横、道路曲折如盘而得名。现存城门为元代重建、明清续修，陆门与水门并列设置，各自都有内外两重门，中间是瓮城。水门与运河相通，可以让舟船直接驶入城中，是中国现存唯一保存完整的水陆并联城门。门外的吴门桥横跨护城河，与城内瑞光塔、盘门合称“盘门三景”。城楼、水关、古桥与塔影相互映衬，是苏州古城门中格局最完整的一处。" 
+        },
+        { 
+            id: 3, 
+            title: "苏州平江路", 
+            image: "3.jpg", 
+            story: "平江路历史街区位于苏州古城东北隅，南起干将东路，北至东北街，全长1605米。街区沿平江河展开，河、街、巷并行，格局自南宋《平江图》以来基本未改，是苏州现存最完整的历史街区。街宽三四米，粉墙黛瓦，桥弄相连；耦园、全晋会馆（今中国昆曲博物馆）等隐于巷内。2009年入选首批“中国十大历史文化名街”。"
+        },
+        { 
+            id: 4, 
+            title: "苏纶纱厂", 
+            image: "4.jpg", 
+            story: "1895年《马关条约》签订后，为从外人手中挽回利权，两江总督张之洞奏请设立工厂，苏州状元陆润庠以“息借商款、移作股本”的办法筹建，1897年投产，是苏州最早的机器棉纺企业，并与南通张謇的大生纱厂并称“状元办厂”。此后该厂经历官督商办、招商租办、完全商办三个阶段，1927年归严氏家族经营；新中国成立后成为国营大厂，鼎盛时工人上万。该厂2003年停产，2005年破产，2009年被列为市级文物保护单位。旧厂房后来改造为“苏纶场”，保留十栋民国建筑，“苏纶场”现为古城南门一带的文创商业街区。" 
+        },
+        { 
+            id: 5, 
+            title: "苏州观前街", 
+            image: "5.jpg", 
+            story: "观前街位于苏州古城中心，因地处玄妙观之前而得名。玄妙观始建于西晋咸宁二年（276年），初名真庆道院，历代更名，元代定名玄妙观；观内三清殿重建于南宋淳熙六年（1179年），是江南现存最重要的宋代木构殿宇之一。街道也因这座道观而兴旺，明清时期已是香火与市井交汇之处。2018年观前街入选江苏省首批老字号集聚街区，2022年成为国家级夜间文化和旅游消费集聚区。" 
+        },
+        { 
+            id: 6, 
+            title: "东吴大学", 
+            image: "6.jpg", 
+            story: "东吴大学校训为“养天地正气，法古今完人”。它是中国最早颁授学士学位的大学之一，法科尤其著名，与北京朝阳大学并称“南东吴、北朝阳”。1952年院系调整时，法学院并入华东政法学院，其余科系在原址组建江苏师范学院，后来发展为苏州大学；东吴大学的血脉另在中国台湾延续。校内的林堂、孙堂、葛堂等红砖建筑保存至今，如今是全国重点文物保护单位。" 
+        },
+        { 
+            id: 7, 
+            title: "苏州拙政园", 
+            image: "7.jpg", 
+            story: "拙政园位于苏州古城东北街，占地约七十八亩，是苏州现存最大的古典园林。全园分东、中、西三部，中部为精华：远香堂临荷而筑，小飞虹廊桥卧水，香洲如画舫泊岸，布局疏朗明净，被看作明代写意山水园的典范。此后园主屡易，一度沦为巡抚行署、太平天国忠王府的一部分。1961年列为首批全国重点文物保护单位，1997年作为“苏州古典园林”列入世界文化遗产名录。" 
+        },
+        { 
+            id: 8, 
+            title: "苏州火车站", 
+            image: "8.jpg", 
+            story: "1906年沪宁铁路筑至苏州时设站，是这座城市的第一座火车站。2007年起，车站改扩建；2010年，新站房随沪宁城际铁路开通而投用。设计取“苏而新”之意，把民居的坡屋顶、菱格花窗与粉墙黛瓦放大成一座现代车站；站台向南，护城河与平门城墙就在眼前。普速与城际两场并列，至今仍是古城最重要的铁路门户。" 
+        },
+        { 
+            id: 9, 
+            title: "寒山寺枫桥夜泊石碑", 
+            image: "9.jpg", 
+            story: "寒山寺在苏州城西的枫桥，始建于南朝梁天监年间，因唐代张继的一首《枫桥夜泊》而名满天下。寺内现存最著名的诗碑，由清末学者俞樾书写，清光绪三十二年（1906年）刻石。书写完成后不久，俞樾便去世了，此碑因此成为绝笔，世人称它为“中华第一诗碑”。更早的明代文徵明书碑已毁，仅余数字残石，与历代碑刻一同陈列于寺内碑廊。“夜半钟声”本只写在纸上，这方石上刻文却把它变成了可以触摸的实物。" 
+        },
+        { 
+            id: 10, 
+            title: "苏州解放", 
+            image: "10.jpg", 
+            story: "1949年4月21日，渡江战役发起，人民解放军东路大军沿京沪铁路东进。4月27日拂晓，部队进入苏州城，古城宣告解放。此前国民党守军已向上海方向撤退，城内没有发生大的战事；在地下党组织和工人护厂队的保护下，电厂、水厂、丝厂以及园林古迹大多得以保全。不久后，军事管制委员会成立，接管城市。直到今天，4月27日仍是苏州的解放纪念日。" 
+        }
+    ];
+    // ==============================================================
+
+    // --- 页面切换 ---
+    function showScreen(screenId) {
+        document.querySelectorAll('#app > div').forEach(el => el.classList.add('hidden'));
+        document.getElementById(screenId).classList.remove('hidden');
+    }
+
+    // --- 初始化图库 ---
+    const galleryContainer = document.getElementById('gallery-container');
+    archives.forEach(archive => {
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+        div.innerHTML = `<img src="${archive.image}" alt="${archive.title}" onerror="this.src='https://dummyimage.com/400x400/cccccc/fff&text=图片加载失败'"><div class="title-mask">${archive.title}</div>`;
+        div.onclick = () => initPuzzle(archive);
+        galleryContainer.appendChild(div);
+    });
+
+    // --- 盲盒 ---
+    function startBlindBox() {
+        const randomIndex = Math.floor(Math.random() * archives.length);
+        initPuzzle(archives[randomIndex], true);
+    }
+
+    // --- 拼图核心 ---
+    let currentArchive = null;
+    let puzzleState = []; 
+    let selectedPieceIndex = null; 
+    let isCompleted = false;
+
+    function initPuzzle(archive, isBlind = false) {
+        currentArchive = archive;
+        isCompleted = false;
+        selectedPieceIndex = null;
+        document.getElementById('story-panel').classList.add('hidden');
+        
+        document.getElementById('puzzle-title').innerText = isBlind ? "神秘档案盲盒开启中..." : archive.title;
+
+        puzzleState = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        do { puzzleState.sort(() => Math.random() - 0.5); } while (isSorted());
+
+        renderPuzzle(archive.image);
+        showScreen('puzzle-screen');
+    }
+
+    function isSorted() { return puzzleState.every((val, index) => val === index); }
+
+    function renderPuzzle(imageUrl) {
+        const board = document.getElementById('puzzle-board');
+        board.innerHTML = '';
+        puzzleState.forEach((pieceOriginalIndex, currentIndex) => {
+            const piece = document.createElement('div');
+            piece.className = 'puzzle-piece';
+            const row = Math.floor(pieceOriginalIndex / 3);
+            const col = pieceOriginalIndex % 3;
+            piece.style.backgroundImage = `url(${imageUrl})`;
+            piece.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+            piece.onclick = () => handlePieceClick(currentIndex, piece);
+            board.appendChild(piece);
+        });
+    }
+
+    function handlePieceClick(index, pieceElement) {
+        if (isCompleted) return;
+        if (selectedPieceIndex === null) {
+            selectedPieceIndex = index;
+            pieceElement.classList.add('selected');
+        } else if (selectedPieceIndex === index) {
+            selectedPieceIndex = null;
+            pieceElement.classList.remove('selected');
+        } else {
+            const temp = puzzleState[selectedPieceIndex];
+            puzzleState[selectedPieceIndex] = puzzleState[index];
+            puzzleState[index] = temp;
+            selectedPieceIndex = null;
+            renderPuzzle(currentArchive.image);
+            if (isSorted()) puzzleCompleted();
+        }
+    }
+
+    // --- 完成拼图 ---
+    function puzzleCompleted() {
+        isCompleted = true;
+        document.getElementById('puzzle-title').innerText = "🎉 拼图完成！";
+        document.getElementById('story-text').innerText = currentArchive.story;
+        
+        // 直接展示面板和下一步按钮
+        document.getElementById('story-panel').classList.remove('hidden');
+        
+        // 平滑滚动到故事面板
+        setTimeout(() => {
+            document.getElementById('story-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+</script>
+</body>
+</html>
